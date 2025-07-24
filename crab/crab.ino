@@ -3,6 +3,20 @@
 
 #include <BluetoothSerial.h>
 
+const char* device_name = "cr4b-brain";
+
+// Check if Bluetooth is available
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+#endif
+
+// Check Serial Port Profile
+#if !defined(CONFIG_BT_SPP_ENABLED)
+#error Serial Port Profile for Bluetooth is not available or not enabled. It is only available for the ESP32 chip.
+#endif
+
+BluetoothSerial SerialBT;
+
 #define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
 #define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
 #define USMIN  600 // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
@@ -21,6 +35,10 @@ void setup() {
   Wire.setClock(100000); // Normal clock hz
   delay(100); // allow i2c device to initialize
   Serial.println("test");
+
+  // begin bluetooth connection
+  SerialBT.begin(device_name);
+  delay(500); // bluetooth amirite haha
 }
 
 void setAng(int servonum, int ang) {
@@ -41,7 +59,7 @@ void loop() {
   }
   Serial.println("serv 2");
   for (int i = 0; i < 60; i += 5) {
-    setAng(2,  40+i);
+    setAng(2,  40+i); 
     delay(100);
   }
 }
