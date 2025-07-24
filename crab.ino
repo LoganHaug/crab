@@ -1,7 +1,7 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
-
 #include <BluetoothSerial.h>
+#include <string.h>
 
 const char* device_name = "cr4b-brain";
 
@@ -45,21 +45,31 @@ void setAng(int servonum, int ang) {
   pwm.setPWM(servonum, 0, floor(map(ang, 0, 180, SERVOMIN, SERVOMAX)));
 }
 
+// "#" -> start byte
+#define MSG_START '#'
+#define MSG_DELIN '\t'
+#define MSG_END '$'
+// 3 byte ints
+// "$" -> end byte
+char b;
+String ang = "";
 void loop() {
-  // Drive each servo one at a time using setPWM()
-  Serial.println("serv 0");
-  for (int i = 0; i < 60; i += 5) {
-    setAng(0,  30+i);
-    delay(100);
+  while (Serial.available()) {
+    b = SerialBT.read();
+    if (b == MSG_START) {
+      for (int i = 0; i < 12; i++) {
+        ang = "";
+        for (int j = 0; j < 3; j++) {
+          b = SerialBT.read();
+          ang += b;
+        }
+        setAng(i, ang.toInt());
+        b = SerialBT.read();
+        if (b != MSG_DELIN) break;
+      }
+    } else if (b == MSG_END) {
+      break;
+    }
   }
-  Serial.println("serv 1");
-  for (int i = 0; i < 60; i += 5) {
-    setAng(1,  90+i);
-    delay(100);
-  }
-  Serial.println("serv 2");
-  for (int i = 0; i < 60; i += 5) {
-    setAng(2,  40+i); 
-    delay(100);
-  }
+  delay(20); // 50 hz = 20ms period
 }
