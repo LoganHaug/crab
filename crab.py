@@ -2,6 +2,7 @@ import bluetooth
 import pygame
 
 import time
+from math import sqrt
 
 pygame.init()
 
@@ -10,8 +11,13 @@ def exit():
 
 def normalize(vect: list[float]) -> list[float]:
     length = sqrt(vect[0] ** 2 + vect[1] ** 2)
+    if length == 0:
+        return [0, 0]
     return [vect[0] / length, vect[1] / length]
 
+def deadzone(stick_val: float) -> float:
+    if abs(stick_val) > 0.23: return stick_val
+    return 0
 """
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip() 
@@ -26,7 +32,7 @@ except bluetooth.btcommon.BluetoothError as e:
 
 controller = None
 mode = "crab"
-move_vect = (0, 0) # x, y
+move_vect = [0, 0] # x, y
 height = 0
 z_dir = 0
 while True:
@@ -48,4 +54,6 @@ while True:
                     print(f"Mode: {mode}")
             if event.type == pygame.JOYAXISMOTION:  
                 # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger, 3 = right horiz, 4 = right vert, 5 = right trigger
-                print(controller.get_axis(5))
+                move_vect[0] = deadzone(controller.get_axis(0))
+                move_vect[1] = deadzone(controller.get_axis(1))
+                move_vect = normalize(move_vect)
