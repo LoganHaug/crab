@@ -34,7 +34,6 @@ void setup() {
   pwm.setPWMFreq(50); // PWM Freq of rc electric parts classic esc 30A
   Wire.setClock(100000); // Normal clock hz
   delay(100); // allow i2c device to initialize
-  Serial.println("test");
 
   // begin bluetooth connection
   SerialBT.begin(device_name);
@@ -54,7 +53,7 @@ void setAng(int servonum, int ang) {
 char b;
 String ang = "";
 void loop() {
-  while (Serial.available()) {
+  while (SerialBT.available()) {
     b = SerialBT.read();
     if (b == MSG_START) {
       for (int i = 0; i < 12; i++) {
