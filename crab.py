@@ -8,6 +8,11 @@ pygame.init()
 def exit():
     sock.close()
 
+def normalize(vect: list[float]) -> list[float]:
+    length = sqrt(vect[0] ** 2 + vect[1] ** 2)
+    return [vect[0] / length, vect[1] / length]
+
+"""
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip() 
 try:
@@ -16,12 +21,16 @@ try:
     time.sleep(2)
 except bluetooth.btcommon.BluetoothError as e:
     print(f"Error: {e}")
+"""
 
 
 controller = None
+mode = "crab"
+move_vect = (0, 0) # x, y
+height = 0
+z_dir = 0
 while True:
     for event in pygame.event.get():
-        print(event)
         if event.type == pygame.QUIT:
             exit()
         if event.type == pygame.JOYDEVICEADDED:
@@ -29,6 +38,14 @@ while True:
         if event.type == pygame.JOYDEVICEREMOVED:
             controller = None
         if controller is not None:
-            print(controller.get_instance_id())
             # TODO movement code: horse or crab mode, raise / lower, joystick movement (left stick), turn (right stick)
-
+            if event.type == pygame.JOYBUTTONDOWN:
+                if event.button == 2:
+                    if mode == "crab":
+                        mode = "dog"
+                    else:
+                        mode = "crab"
+                    print(f"Mode: {mode}")
+            if event.type == pygame.JOYAXISMOTION:  
+                # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger, 3 = right horiz, 4 = right vert, 5 = right trigger
+                print(controller.get_axis(5))
