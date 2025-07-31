@@ -44,6 +44,32 @@ def packet_gen(serv, ang) -> str:
         raise ValueError("invalid angle")
     return "#".encode() + serv.to_bytes(1, "big") + "+".encode() + ang.to_bytes(2, "big") + "$".encode()
 
+def stand_leg(s1: int, s2: int, s3: int) -> bytes:
+    yield packet_gen(s1, 375)
+    yield packet_gen(s2, 500)
+    yield packet_gen(s3, 500)
+    yield packet_gen(s2, 400)
+    yield packet_gen(s3, 400)
+
+def sit_leg(s1: int, s2: int, s3: int) -> bytes:
+    yield packet_gen(s1, 375)
+    yield packet_gen(s2, 500)
+    yield packet_gen(s3, 500)
+
+def rotate_leg(ang: int, s1: int, s2: int, s3: int, s4: int) -> bytes:
+    yield packet_gen(s1, ang)
+    if ang > ang_limits[s2][1]:
+        yield packet_gen(s2, ang_limits[s2][1])
+    else:
+        yield packet_gen(s2, ang)
+
+    if ang > ang_limits[s3][1]:
+        yield packet_gen(s3, ang_limits[s3][1])
+    else:
+        yield packet_gen(s3, ang)
+    yield packet_gen(s4, ang)
+
+
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip() 
 sock = None
@@ -56,12 +82,11 @@ except bluetooth.btcommon.BluetoothError as e:
 
 controller = None
 mode = "crab"
-move_vect = [0, 0] # x, y
+move_vect = [0, 0, 0] # x, y, turn
 height = 0
 z_dir = 0
 test_ang = 375 
 last_pack = None
-test_ang2 = 90
 while True:
     for event in pygame.event.get():
         if event.type == pygame.JOYDEVICEADDED:
@@ -77,23 +102,43 @@ while True:
                     else:
                         mode = "crab"
                     print(f"Mode: {mode}")
+                if event.button == 3:
+                    packs_l1 = [pack for pack in stand_leg(0, 1, 2)]
+                    packs_l2 = [pack for pack in stand_leg(3, 4, 5)]
+                    packs_l3 = [pack for pack in stand_leg(6, 7, 8)]
+                    packs_l4 = [pack for pack in stand_leg(9, 10, 11)]
+                    for pack in range(len(packs_l1)):
+                        sock.send(packs_l1[pack])
+                        sock.send(packs_l2[pack])
+                        sock.send(packs_l3[pack])
+                        sock.send(packs_l4[pack])
+                        time.sleep(0.5)
+                if event.button == 4:
+                    packs_l1 = [pack for pack in sit_leg(0, 1, 2)]
+                    packs_l2 = [pack for pack in sit_leg(3, 4, 5)]
+                    packs_l3 = [pack for pack in sit_leg(6, 7, 8)]
+                    packs_l4 = [pack for pack in sit_leg(9, 10, 11)]
+                    for pack in range(len(packs_l1)):
+                        sock.send(packs_l1[pack])
+                        sock.send(packs_l2[pack])
+                        sock.send(packs_l3[pack])
+                        sock.send(packs_l4[pack])
+                        time.sleep(0.5)
+
                 elif event.button == 10:
                     exit()
             if event.type == pygame.JOYAXISMOTION:  
                 # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger, 3 = right horiz, 4 = right vert, 5 = right trigger
-                move_vect[0] = deadzone(controller.get_axis(3))
-                move_vect[1] = deadzone(controller.get_axis(1))
+                move_vect[0] = deadzone(controller.get_axis(0))
+                move_vect[1] = deadzone(controller.get_axis(3))
                 move_vect = normalize(move_vect)
-                if move_vect[0] < 0:
+                if move_vect[1] < 0:
                     test_ang -= 1
                     if test_ang < 150:
                         test_ang = 150 
-                elif move_vect[0] > 0:
+                elif move_vect[1] > 0:
                     test_ang += 1
                     if test_ang > 600:
-                        test_ang = 600 
-                pack = packet_gen(11, test_ang)
-                if pack != last_pack:
-                    print(test_ang)
+                        test_ang = 600
+                for pack in rotate_leg(test_ang, 0, 3, 6, 9):
                     sock.send(pack)
-                last_pack = pack
