@@ -25,6 +25,20 @@ BluetoothSerial SerialBT;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // PCA9685
 
+void setAng(int servonum, int ang) {
+  if ((servonum >= 0) && (servonum < 12)) {
+    if ((ang >= SERVOMIN) && (ang <= SERVOMAX)) {
+      pwm.setPWM(servonum, 0, ang);
+    }
+  }
+}
+
+int ang;
+int readAng() {
+  ang = SerialBT.read() << 8;
+  return ang + SerialBT.read();
+}
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -40,35 +54,26 @@ void setup() {
   delay(500); // bluetooth amirite haha
 }
 
-void setAng(int servonum, int ang) {
-  pwm.setPWM(servonum, 0, floor(map(ang, 0, 180, SERVOMIN, SERVOMAX)));
-}
-
 // "#" -> start byte
 #define MSG_START '#'
-#define MSG_DELIN '\t'
+#define MSG_DELIN '+'
 #define MSG_END '$'
-// 3 byte ints
 // "$" -> end byte
-char b;
-String ang = "";
+// example packet with each byte in brackets: <start><char servo><delin><int ang><end>
+int serv;
+int start;
 void loop() {
   while (SerialBT.available()) {
-    b = SerialBT.read();
-    if (b == MSG_START) {
-      for (int i = 0; i < 12; i++) {
-        ang = "";
-        for (int j = 0; j < 3; j++) {
-          b = SerialBT.read();
-          ang += b;
-        }
-        setAng(i, ang.toInt());
-        b = SerialBT.read();
-        if (b != MSG_DELIN) break;
+    start = SerialBT.read();
+    if (start == MSG_START) {
+      serv = SerialBT.read();
+      } if (SerialBT.read() == MSG_DELIN) {
+        ang = readAng();
       }
-    } else if (b == MSG_END) {
-      break;
+      if (SerialBT.read() == MSG_END) {
+        setAng(serv, ang);
+      }
     }
-  }
   delay(20); // 50 hz = 20ms period
 }
+
