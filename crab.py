@@ -23,16 +23,16 @@ def deadzone(stick_val: float) -> float:
 
 # max min of each servo
 ang_limits = {
-        0: (150, 500),
-        1: (150, 600),
-        2: (150, 600),
-        3: (150, 450),
-        4: (150, 600),
-        5: (150, 600),
-        6: (150, 460),
+        0: (150, 430),
+        1: (180, 530),
+        2: (150, 320),
+        3: (150, 330),
+        4: (150, 530),
+        5: (250, 500),
+        6: (150, 600),
         7: (150, 600),
         8: (150, 600),
-        9: (150, 500),
+        9: (150, 600),
         10: (150, 600),
         11: (150, 600),
         15: (150, 600)
@@ -69,6 +69,14 @@ def rotate_leg(ang: int, s1: int, s2: int, s3: int, s4: int) -> bytes:
         yield packet_gen(s3, ang)
     yield packet_gen(s4, ang)
 
+def constrain(x, start, end, delta):
+    x += delta
+    if x < start:
+        return start 
+    elif x > end:
+        return end 
+    return x
+
 
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip() 
@@ -87,6 +95,9 @@ height = 0
 z_dir = 0
 test_ang = 375 
 last_pack = None
+servo_num = 0
+print(f"servo num: {servo_num}")
+print(f"test ang: {test_ang}")
 while True:
     for event in pygame.event.get():
         if event.type == pygame.JOYDEVICEADDED:
@@ -95,6 +106,10 @@ while True:
             controller = None
         if controller is not None:
             # TODO movement code: raise / lower, joystick movement (left stick), turn (right stick)
+            if event.type == pygame.JOYHATMOTION:
+                servo_num = constrain(servo_num, 0, 11, event.value[0])
+                print(f"servo_num: {servo_num}")
+                
             if event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 2:
                     if mode == "crab":
@@ -102,6 +117,7 @@ while True:
                     else:
                         mode = "crab"
                     print(f"Mode: {mode}")
+                """
                 if event.button == 3:
                     packs_l1 = [pack for pack in stand_leg(0, 1, 2)]
                     packs_l2 = [pack for pack in stand_leg(3, 4, 5)]
@@ -127,18 +143,16 @@ while True:
 
                 elif event.button == 10:
                     exit()
+                    """
             if event.type == pygame.JOYAXISMOTION:  
                 # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger, 3 = right horiz, 4 = right vert, 5 = right trigger
                 move_vect[0] = deadzone(controller.get_axis(0))
                 move_vect[1] = deadzone(controller.get_axis(3))
                 move_vect = normalize(move_vect)
-                if move_vect[1] < 0:
-                    test_ang -= 1
-                    if test_ang < 150:
-                        test_ang = 150 
-                elif move_vect[1] > 0:
-                    test_ang += 1
-                    if test_ang > 600:
-                        test_ang = 600
-                for pack in rotate_leg(test_ang, 0, 3, 6, 9):
+                delta = constrain(test_ang, 150, 600, int(move_vect[1]))
+                if delta != test_ang:
+                    test_ang = delta
+                    print(f"test_ang: {test_ang}")
+                    pack = packet_gen(servo_num, test_ang)
                     sock.send(pack)
+
