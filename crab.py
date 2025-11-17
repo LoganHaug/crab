@@ -1,8 +1,9 @@
 import bluetooth
 import pygame
-
 import time
 from math import sqrt, floor 
+
+import movement
 
 pygame.init()
 
@@ -53,7 +54,6 @@ def constrain(x, start: int, end: int, delta: int):
     elif x > end:
         return end 
     return x
-
 
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip() 
