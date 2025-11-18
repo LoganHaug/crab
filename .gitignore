@@ -1,3 +1,5 @@
 env/*
 mac.txt
 test*
+
+__pycache__/*

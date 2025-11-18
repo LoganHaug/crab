@@ -1,9 +1,11 @@
 import math
 
-l1 = 0
-l2 = 0
+# in mm
+l1 = 112.7125
+l2 = 169.8625
 
-def solve_planar_kinematics(x: float, y: float) -> tuple(float, float):
+
+def solve_planar_kinematics(x: float, y: float) -> tuple[float, float]:
     """Solves the vertical planar 2 link open chain inverse kinematics for the 2nd, 3rd, servos
     x and y is the point in the vertical plane (in mm) to move the end effector to
     returns a tuple of (theta1, and theta2) (in radians) joint angles"""
