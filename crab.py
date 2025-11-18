@@ -3,7 +3,7 @@ import pygame
 from numpy import interp
 
 import time
-from math import sqrt, floor
+from math import sqrt, floor, pi
 
 import movement
 
@@ -29,27 +29,11 @@ def deadzone(stick_val: float) -> float:
     return 0
 
 
-# max min of each servo
-ang_limits = {
-    0: (300, 490),
-    1: (275, 500),
-    2: (260, 470),
-    3: (270, 480),
-    4: (250, 480),
-    5: (220, 450),
-    6: (290, 480),
-    7: (250, 500),
-    8: (230, 480),
-    9: (290, 480),
-    10: (270, 520),
-    11: (230, 470),
-}
-
 
 def packet_gen(serv, ang) -> str:
     if serv < 0 or serv > 15:
         raise IndexError("invalid servo number")
-    if ang < ang_limits[serv][0] or ang > ang_limits[serv][1]:
+    if ang < movement.ang_limits[serv][0] or ang > movement.ang_limits[serv][1]:
         print(ValueError("invalid angle"))
         return None
     return (
@@ -101,7 +85,7 @@ while True:
             # turn (right stick)
             if event.type == pygame.JOYHATMOTION:
                 servo_num = constrain(servo_num, 0, 11, event.value[0])
-                test_ang = (ang_limits[servo_num][1] + ang_limits[servo_num][0]) // 2
+                test_ang = (movement.ang_limits[servo_num][1] + movement.ang_limits[servo_num][0]) // 2
                 print(f"servo_num: {servo_num}, test_ang {test_ang}")
             if event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 2:
