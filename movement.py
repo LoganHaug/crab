@@ -10,30 +10,30 @@ pwm_limits = {
     1: (275, 500),
     2: (260, 470),
     3: (270, 480),
-    4: (250, 480),
-    5: (220, 450),
+    4: (240, 465),
+    5: (220, 440),
     6: (290, 480),
-    7: (250, 500),
-    8: (230, 480),
+    7: (250, 475),
+    8: (230, 450),
     9: (290, 480),
-    10: (270, 520),
-    11: (230, 470),
+    10: (255, 475),
+    11: (230, 440),
 }
 
 # in radians
 ang_limits = {
     0: (0, math.pi / 2),
-    1: (0, (5 * math.pi) / 9),
-    2: (0, math.pi / 2),
+    1: (0, (7 * math.pi) / 12),
+    2: (0, (19 * math.pi) / 36),
     3: (0, math.pi / 2),
-    4: (0, (5 * math.pi) / 9),
-    5: (0, math.pi / 2),
+    4: (0, (7 * math.pi) / 12),
+    5: (0, (19 * math.pi) / 36),
     6: (0, math.pi / 2),
-    7: (0, (5 * math.pi) / 9),
-    8: (0, math.pi / 2),
+    7: (0, (7 * math.pi) / 12),
+    8: (0, (19 * math.pi) / 36),
     9: (0, math.pi / 2),
-    10: (0, (5 * math.pi) / 9),
-    11: (0, math.pi / 2),
+    10: (0, (7 * math.pi) / 12),
+    11: (0, (19 * math.pi) / 36)
 }
 
 
@@ -80,8 +80,8 @@ class Servo:
             self.pulse = (pwm_limits[self.id][1] + pwm_limits[self.id][0]) // 2
         else:
             self.pulse = pwm_limits[self.id][1]
+        self.set = False
         self.set_ang(self.pulse)
-
         self.angle = self._pwm2rad(self.pulse)
 
     def __str__(self):
@@ -94,7 +94,7 @@ class Servo:
             return None
         if self.sock is None:
             print("WARN: Connection is closed")
-        elif pulse_width != self.pulse:
+        elif pulse_width != self.pulse or not self.set:
             self.pulse = pulse_width
             self.sock.send(
                 "#".encode()
