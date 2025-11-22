@@ -29,31 +29,6 @@ def deadzone(stick_val: float) -> float:
     return 0
 
 
-
-def packet_gen(serv, ang) -> str:
-    if serv < 0 or serv > 15:
-        raise IndexError("invalid servo number")
-    if ang < movement.ang_limits[serv][0] or ang > movement.ang_limits[serv][1]:
-        print(ValueError("invalid angle"))
-        return None
-    return (
-        "#".encode()
-        + serv.to_bytes(1, "big")
-        + "+".encode()
-        + ang.to_bytes(2, "big")
-        + "$".encode()
-    )
-
-
-def constrain(x, start: int, end: int, delta: int):
-    x += delta
-    if x < start:
-        return start
-    elif x > end:
-        return end
-    return x
-
-
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip()
 sock = None
@@ -64,16 +39,11 @@ try:
 except bluetooth.btcommon.BluetoothError as e:
     print(f"Error: {e}")
 
-height = 0
 controller = None
-mode = "crab"
-move_vect = [0, 0, 0]  # x, y, theta
-height = 0
-test_ang = 375
-last_pack = None
-servo_num = 0
-print(f"servo num: {servo_num}")
-print(f"test ang: {test_ang}")
+selected_servo = 0
+move_vect = [0, 0]
+print("Selected servo 0")
+servos = [movement.Servo(i, sock) for i in range(12)]
 while True:
     for event in pygame.event.get():
         if event.type == pygame.JOYDEVICEADDED:
@@ -81,20 +51,13 @@ while True:
         if event.type == pygame.JOYDEVICEREMOVED:
             controller = None
         if controller is not None:
-            # TODO movement code: raise / lower, joystick movement (left stick),
+            # TODO movement code: raise / lower, joystick movement (left stick)
             # turn (right stick)
             if event.type == pygame.JOYHATMOTION:
-                servo_num = constrain(servo_num, 0, 11, event.value[0])
-                test_ang = (movement.ang_limits[servo_num][1] + movement.ang_limits[servo_num][0]) // 2
-                print(f"servo_num: {servo_num}, test_ang {test_ang}")
+                selected_servo = movement.constrain(selected_servo, 0, 11, event.value[0])
+                print(f"Selected servo {selected_servo}")
             if event.type == pygame.JOYBUTTONDOWN:
-                if event.button == 2:
-                    if mode == "crab":
-                        mode = "dog"
-                    else:
-                        mode = "crab"
-                    print(f"Mode: {mode}")
-                elif event.button == 10:
+                if event.button == 10:
                     exit()
             if event.type == pygame.JOYAXISMOTION:
                 # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger,
@@ -102,12 +65,4 @@ while True:
                 move_vect[0] = deadzone(controller.get_axis(0))
                 move_vect[1] = deadzone(controller.get_axis(3))
                 move_vect = normalize(move_vect)
-                new_ang = int(constrain(test_ang, 150, 600, int(move_vect[1])))
-                if new_ang != test_ang:
-                    print(f"test_ang: {test_ang}")
-                    pack = packet_gen(servo_num, new_ang)
-                    try:
-                        sock.send(pack)
-                        test_ang = new_ang
-                    except:
-                        print("didnt send")
+                servos[selected_servo].relative_ang(int(move_vect[1]))
