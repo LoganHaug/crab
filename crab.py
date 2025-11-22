@@ -51,9 +51,8 @@ while True:
         if event.type == pygame.JOYDEVICEREMOVED:
             controller = None
         if controller is not None:
-            # TODO movement code: raise / lower, joystick movement (left stick)
             # turn (right stick)
-            if event.type == pygame.JOYHATMOTION:
+            if event.type == pygame.JOYHATMOTION and event.value[0]:
                 selected_servo = movement.constrain(selected_servo, 0, 11, event.value[0])
                 print(f"Selected servo {selected_servo}")
             if event.type == pygame.JOYBUTTONDOWN:

@@ -71,6 +71,7 @@ class Servo:
         if iden < 0 or iden > 11:
             raise IndexError("invalid servo number")
         self.id = iden
+        self.sock = sock
         self.min_pwm = pwm_limits[self.id][0]
         self.max_pwm = pwm_limits[self.id][1]
         self.min_ang = ang_limits[self.id][0]
@@ -79,8 +80,9 @@ class Servo:
             self.pulse = (pwm_limits[self.id][1] + pwm_limits[self.id][0]) // 2
         else:
             self.pulse = pwm_limits[self.id][1]
+        self.set_ang(self.pulse)
+
         self.angle = self._pwm2rad(self.pulse)
-        self.sock = sock
 
     def __str__(self):
         return f"i am servo {iden}"
