@@ -57,7 +57,7 @@ class Servo:
     def _rad2pwm(self, angle: float) -> float:
         """Converts an angle in radians to a pulse width in ms
         angle is the angle in radians"""
-        return interp(angle, [self.min_ang, self.max_ang], [self.min_pwm, self.max_pwm])
+        return int(interp(angle, [self.min_ang, self.max_ang], [self.min_pwm, self.max_pwm]))
 
     def _pwm2rad(self, pulse_width: float) -> float:
         """Converts a pwm value in ms to angle in radians
@@ -117,6 +117,4 @@ def solve_planar_kinematics(x: float, y: float) -> tuple[float, float]:
     returns a tuple of (theta1, and theta2) (in radians) joint angles"""
     alpha = math.acos((x**2 + y**2 + l1**2 - l2**2) / (2 * l1 * math.sqrt(x**2 + y**2)))
     beta = math.acos((l1**2 + l2**2 - x**2 - y**2) / (2 * l1 * l2))
-    theta1 = alpha
-    theta2 = ((3 * math.pi) / 4) - beta
-    return theta1, theta2
+    return alpha, beta 
