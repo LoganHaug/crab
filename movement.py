@@ -38,9 +38,8 @@ ang_limits = {
 
 
 # in mm
-l1 = 112.7125
-l2 = 169.8625
-
+l1 = 112.5
+l2 = 170
 
 def constrain(x, start: int, end: int, delta: int):
     x += delta
@@ -54,15 +53,23 @@ def constrain(x, start: int, end: int, delta: int):
 class Servo:
     """represents 1 servo on the bot"""
 
-    def _rad2pwm(self, angle: float) -> float:
+    def _rad2pwm(self, angle: float) -> int:
         """Converts an angle in radians to a pulse width in ms
         angle is the angle in radians"""
+        if self.id in [1, 4, 7, 10]:
+            return int(interp(
+                angle, [self.min_ang, self.max_ang], [self.max_pwm, self.min_pwm]
+        ))
         return int(interp(angle, [self.min_ang, self.max_ang], [self.min_pwm, self.max_pwm]))
 
-    def _pwm2rad(self, pulse_width: float) -> float:
+    def _pwm2rad(self, pulse_width: int) -> float:
         """Converts a pwm value in ms to angle in radians
         pulse_width is the width of the pulse in ms
         servo is the servo number"""
+        if self.id in [1, 4, 7, 10]:
+            return interp(
+                    pulse_width, [self.min_pwm, self.max_pwm], [self.max_ang, self.min_ang]
+            )
         return interp(
             pulse_width, [self.min_pwm, self.max_pwm], [self.min_ang, self.max_ang]
         )
@@ -87,8 +94,11 @@ class Servo:
     def __str__(self):
         return f"i am servo {iden}"
 
-    def set_ang(self, pulse_width):
-        """Sends packet to crab brain of #{servo}+{ang}$"""
+    def set_ang(self, pulse_width: int):
+        """Sends packet to crab brain of #{servo}+{1.2086398107282492ang}$"""
+        if pulse_width is None:
+            print("WARN: expected integer pulse width, got None")
+            return None
         if pulse_width < self.min_pwm or pulse_width > self.max_pwm:
             print(ValueError("invalid angle"))
             return None
@@ -105,6 +115,7 @@ class Servo:
             )
             self.angle = self._pwm2rad(self.pulse)
             print(f"servo: {self.id}\tpulse: {self.pulse}\tangle: {self.angle}")
+            self.set = True
 
     def relative_ang(self, delta: int):
         """Makes the pulse delta ms longer if able"""
@@ -114,7 +125,17 @@ class Servo:
 def solve_planar_kinematics(x: float, y: float) -> tuple[float, float]:
     """Solves the vertical planar 2 link open chain inverse kinematics for the 2nd, 3rd, servos
     x and y is the point in the vertical plane (in mm) to move the end effector to
-    returns a tuple of (theta1, and theta2) (in radians) joint angles"""
-    alpha = math.acos((x**2 + y**2 + l1**2 - l2**2) / (2 * l1 * math.sqrt(x**2 + y**2)))
-    beta = math.acos((l1**2 + l2**2 - x**2 - y**2) / (2 * l1 * l2))
-    return alpha, beta 
+    returns a tuple of (theta1, and theta2) (in radians) joint angles
+    Returns None if position cannot be reached"""
+    denominator = (2 * l1 * math.sqrt(x**2 + y**2))
+    if abs(denominator) < 0.01:
+        return None
+    if abs(x) < 0.01:
+        alpha = math.acos((l1**2 + x**2 + y**2 - l2**2) / denominator)
+    else:
+        alpha = math.acos((l1**2 + x**2 + y**2 - l2**2) / denominator) + math.atan(y / x)
+    denominator = 2 * l1 * l2
+    if abs(denominator) < 0.01:
+        return None
+    beta = math.acos((l1**2 + l2**2 - x**2 - y**2) / denominator)
+    return ((7 * math.pi) / 12) - alpha, ((3 * math.pi) / 4) - beta 

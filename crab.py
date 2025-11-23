@@ -35,7 +35,7 @@ try:
     sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
     sock.connect((esp_mac, 1))
     time.sleep(2)
-except bluetooth.btcommon.BluetoothError:
+except bluetooth.btcommon.BluetoothError as e:
     print(f"Error: {e}")
 
 pygame.init()
@@ -57,8 +57,11 @@ while True:
             selected_servo = movement.constrain(selected_servo, 0, 11, controller.get_hat(0)[0]) 
             print(f"Selected servo {selected_servo}")
             wait_next_press = True
-        if not controller.get_hat(0)[0]:
+        if controller.get_hat(0) == (0, 0):
             wait_next_press = False
+        if controller.get_hat(0)[1] and not wait_next_press:
+            servos[selected_servo].relative_ang(controller.get_hat(0)[1])
+            wait_next_press = True
         if controller.get_button(10):
             exit()
         if controller.get_button(2):
@@ -66,10 +69,9 @@ while True:
             servos[1].set_ang(servos[1]._rad2pwm(angs[0]))
             servos[2].set_ang(servos[2]._rad2pwm(angs[1]))
         if controller.get_button(3):
-            angs = movement.solve_planar_kinematics(200, 0) 
+            angs = movement.solve_planar_kinematics(100, 100) 
             servos[1].set_ang(servos[1]._rad2pwm(angs[0]))
             servos[2].set_ang(servos[2]._rad2pwm(angs[1]))
-
         if deadzone(controller.get_axis(3)):
             # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger,
             # 3 = right horiz, 4 = right vert, 5 = right trigger
