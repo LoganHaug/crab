@@ -1,6 +1,6 @@
 import math
-import bluetooth
 
+import bluetooth
 from numpy import interp
 
 
@@ -33,13 +33,14 @@ ang_limits = {
     8: (0, (19 * math.pi) / 36),
     9: (0, math.pi / 2),
     10: (0, (7 * math.pi) / 12),
-    11: (0, (19 * math.pi) / 36)
+    11: (0, (19 * math.pi) / 36),
 }
 
 
 # in mm
 l1 = 112.5
 l2 = 170
+
 
 def constrain(x, start: int, end: int, delta: int):
     x += delta
@@ -57,10 +58,14 @@ class Servo:
         """Converts an angle in radians to a pulse width in ms
         angle is the angle in radians"""
         if self.id in [1, 4, 7, 10]:
-            return int(interp(
-                angle, [self.min_ang, self.max_ang], [self.max_pwm, self.min_pwm]
-        ))
-        return int(interp(angle, [self.min_ang, self.max_ang], [self.min_pwm, self.max_pwm]))
+            return int(
+                interp(
+                    angle, [self.min_ang, self.max_ang], [self.max_pwm, self.min_pwm]
+                )
+            )
+        return int(
+            interp(angle, [self.min_ang, self.max_ang], [self.min_pwm, self.max_pwm])
+        )
 
     def _pwm2rad(self, pulse_width: int) -> float:
         """Converts a pwm value in ms to angle in radians
@@ -68,7 +73,7 @@ class Servo:
         servo is the servo number"""
         if self.id in [1, 4, 7, 10]:
             return interp(
-                    pulse_width, [self.min_pwm, self.max_pwm], [self.max_ang, self.min_ang]
+                pulse_width, [self.min_pwm, self.max_pwm], [self.max_ang, self.min_ang]
             )
         return interp(
             pulse_width, [self.min_pwm, self.max_pwm], [self.min_ang, self.max_ang]
@@ -88,22 +93,18 @@ class Servo:
         else:
             self.pulse = pwm_limits[self.id][1]
         self.set = False
-        self.set_ang(self.pulse)
+        self.set_pulse(self.pulse)
         self.angle = self._pwm2rad(self.pulse)
 
     def __str__(self):
         return f"i am servo {iden}"
 
-    def set_ang(self, pulse_width: int):
+    def set_pulse(self, pulse_width: int):
         """Sends packet to crab brain of #{servo}+{1.2086398107282492ang}$"""
-        if pulse_width is None:
-            print("WARN: expected integer pulse width, got None")
-            return None
         if pulse_width < self.min_pwm or pulse_width > self.max_pwm:
-            print(ValueError("invalid angle"))
-            return None
+            raise ValueError("invalid angle")
         if self.sock is None:
-            print("WARN: Connection is closed")
+            raise bluetooth.BluetoothError("Connection is offline")
         elif pulse_width != self.pulse or not self.set:
             self.pulse = pulse_width
             self.sock.send(
@@ -119,23 +120,41 @@ class Servo:
 
     def relative_ang(self, delta: int):
         """Makes the pulse delta ms longer if able"""
-        self.set_ang(constrain(self.pulse, self.min_pwm, self.max_pwm, delta))
+        self.set_pulse(constrain(self.pulse, self.min_pwm, self.max_pwm, delta))
 
 
-def solve_planar_kinematics(x: float, y: float) -> tuple[float, float]:
-    """Solves the vertical planar 2 link open chain inverse kinematics for the 2nd, 3rd, servos
-    x and y is the point in the vertical plane (in mm) to move the end effector to
-    returns a tuple of (theta1, and theta2) (in radians) joint angles
-    Returns None if position cannot be reached"""
-    denominator = (2 * l1 * math.sqrt(x**2 + y**2))
-    if abs(denominator) < 0.01:
-        return None
-    if abs(x) < 0.01:
-        alpha = math.acos((l1**2 + x**2 + y**2 - l2**2) / denominator)
-    else:
-        alpha = math.acos((l1**2 + x**2 + y**2 - l2**2) / denominator) + math.atan(y / x)
-    denominator = 2 * l1 * l2
-    if abs(denominator) < 0.01:
-        return None
-    beta = math.acos((l1**2 + l2**2 - x**2 - y**2) / denominator)
-    return ((7 * math.pi) / 12) - alpha, ((3 * math.pi) / 4) - beta 
+class Leg:
+    def __init__(self, servos: list[Servo]):
+        self.servos = servos
+        self.s0 = self.servos[0]
+        self.s1 = self.servos[1]
+        self.s2 = self.servos[2]
+        self.position = self.get_pos()
+
+    def get_pos(self) -> tuple[float, float]:
+        return l1 * math.cos(self.s1.angle) + l2 * math.cos(
+            self.s1.angle + self.s2.angle
+        ), l1 * math.sin(self.s1.angle) + l2 * math.sin(self.s1.angle + self.s2.angle)
+
+    def position_foot(self, x: float, y: float):
+        """Solves the vertical planar 2 link open chain inverse kinematics for the 2nd, 3rd, servos, and then moves there
+        x and y is the point in the vertical plane (in mm) to move the end effector to
+        """
+        denominator = 2 * l1 * math.sqrt(x**2 + y**2)
+        if abs(denominator) < 0.01:
+            raise ValueError("Unreachable position")
+        if abs(x) < 0.01:
+            alpha = math.acos((l1**2 + x**2 + y**2 - l2**2) / denominator)
+        else:
+            alpha = math.acos(
+                (l1**2 + x**2 + y**2 - l2**2) / denominator
+            ) + math.atan(y / x)
+        denominator = 2 * l1 * l2
+        if abs(denominator) < 0.01:
+            raise ValueError("Unreachable position")
+        beta = math.acos((l1**2 + l2**2 - x**2 - y**2) / denominator)
+        theta1 = ((7 * math.pi) / 12) - alpha
+        theta2 = ((3 * math.pi) / 4) - beta
+        self.s1.set_pulse(self.s1._rad2pwm(theta1))
+        self.s2.set_pulse(self.s2._rad2pwm(theta2))
+        self.position = self.get_pos()
