@@ -148,7 +148,7 @@ class Leg:
         else:
             alpha = math.acos(
                 (l1**2 + x**2 + y**2 - l2**2) / denominator
-            ) + math.atan(y / x)
+            ) + math.atan2(y, x)
         denominator = 2 * l1 * l2
         if abs(denominator) < 0.01:
             raise ValueError("Unreachable position")

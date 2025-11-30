@@ -86,7 +86,8 @@ while True:
         new_y = move_vect[1] + 0.3 * joy_vect[1]
         print(move_vect)
         try:
-            legs[selected_leg].position_foot(new_x, new_y)
+            for leg in legs:
+                leg.position_foot(new_x, new_y)
             move_vect = (new_x, new_y)
         except Exception as e:
             print(e)
