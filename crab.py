@@ -85,12 +85,11 @@ while True:
         new_x =  move_vect[0] + 0.3 * joy_vect[0] 
         new_y = move_vect[1] + 0.3 * joy_vect[1]
         print(move_vect)
-        try:
-            for leg in legs:
-                leg.position_foot(new_x, new_y)
-            move_vect = (new_x, new_y)
-        except Exception as e:
-            print(e)
+        for leg in legs:
+            if leg.position_foot(new_x, new_y):
+                move_vect = (new_x, new_y)
+            else:
+                print("Out of bounds")
 
     pygame.event.pump()
     time.sleep(0.01)

@@ -102,7 +102,7 @@ class Servo:
     def set_pulse(self, pulse_width: int):
         """Sends packet to crab brain of #{servo}+{1.2086398107282492ang}$"""
         if pulse_width < self.min_pwm or pulse_width > self.max_pwm:
-            raise ValueError("invalid angle")
+            raise ValueError("invalid pulse")
         if self.sock is None:
             raise bluetooth.BluetoothError("Connection is offline")
         elif pulse_width != self.pulse or not self.set:
@@ -136,7 +136,7 @@ class Leg:
             self.s1.angle + self.s2.angle
         ), l1 * math.sin(self.s1.angle) + l2 * math.sin(self.s1.angle + self.s2.angle)
 
-    def position_foot(self, x: float, y: float):
+    def position_foot(self, x: float, y: float) -> bool:
         """Solves the vertical planar 2 link open chain inverse kinematics for the 2nd, 3rd, servos, and then moves there
         x and y is the point in the vertical plane (in mm) to move the end effector to
         """
@@ -146,15 +146,27 @@ class Leg:
         if abs(x) < 0.01:
             alpha = math.acos((l1**2 + x**2 + y**2 - l2**2) / denominator)
         else:
-            alpha = math.acos(
-                (l1**2 + x**2 + y**2 - l2**2) / denominator
-            ) + math.atan2(y, x)
+            arg = (l1**2 + x**2 + y**2 - l2**2) / denominator
+            if -1 > arg or arg > 1:
+                return False
+            alpha = math.acos(arg) + math.atan2(y, x)
         denominator = 2 * l1 * l2
         if abs(denominator) < 0.01:
             raise ValueError("Unreachable position")
         beta = math.acos((l1**2 + l2**2 - x**2 - y**2) / denominator)
         theta1 = ((7 * math.pi) / 12) - alpha
+        s1pwm = self.s1._rad2pwm(theta1)
+        if s1pwm < self.s1.min_pwm or s1pwm > self.s1.max_pwm:
+            print("theta1 fail")
+            return False
         theta2 = ((3 * math.pi) / 4) - beta
+        s2pwm = self.s2._rad2pwm(theta2)
+        if s2pwm < self.s2.min_pwm or s2pwm > self.s2.max_pwm:
+            print("theta2 fail")
+            return False
+            print(e)
+            
         self.s1.set_pulse(self.s1._rad2pwm(theta1))
         self.s2.set_pulse(self.s2._rad2pwm(theta2))
         self.position = self.get_pos()
+        return True
