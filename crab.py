@@ -39,6 +39,7 @@ def deadzone(stick_val: float) -> float:
 with open("mac.txt", "r") as f:
     esp_mac = f.readline().strip()
 sock = None
+print(esp_mac)
 try:
     sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
     sock.connect((esp_mac, 1))
@@ -56,6 +57,7 @@ servos = [movement.Servo(i, sock) for i in range(12)]
 legs = [movement.Leg(servos[i : i + 3]) for i in range(0, 12, 3)]
 wait_next_press = False
 move_vect = legs[selected_leg].position 
+mode = "individual"
 while True:
     for event in pygame.event.get():
         if event.type == pygame.JOYDEVICEADDED:
@@ -75,21 +77,29 @@ while True:
             wait_next_press = False
         if controller.get_hat(0)[1] and not wait_next_press:
             servos[selected_servo].relative_ang(controller.get_hat(0)[1])
+            print("test")
             wait_next_press = True
         if controller.get_button(10):
             exit()
-        # right joystick handling
-        # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger,
-        # 3 = right horiz, 4 = right vert, 5 = right trigger
-        joy_vect = normalize(deadzone(controller.get_axis(3)), -1 * deadzone(controller.get_axis(4)))
-        new_x =  move_vect[0] + 0.3 * joy_vect[0] 
-        new_y = move_vect[1] + 0.3 * joy_vect[1]
-        print(move_vect)
-        for leg in legs:
-            if leg.position_foot(new_x, new_y):
-                move_vect = (new_x, new_y)
-            else:
-                print("Out of bounds")
+        if mode == "mirror":
+            # right joystick handling
+            # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger,
+            # 3 = right horiz, 4 = right vert, 5 = right trigger
+            joy_vect = normalize(deadzone(controller.get_axis(3)), -1 * deadzone(controller.get_axis(4)))
+            new_x =  move_vect[0] + 0.3 * joy_vect[0] 
+            new_y = move_vect[1] + 0.3 * joy_vect[1]
+            print(move_vect)
+            for leg in legs:
+                if leg.position_foot(new_x, new_y):
+                    move_vect = (new_x, new_y)
+                else:
+                    print("Out of bounds")
+        elif mode == "individual":
+            joy_vect = normalize(deadzone(controller.get_axis(3)), -1 * deadzone(controller.get_axis(4)))
+            servos[selected_servo].relative_ang(joy_vect[0])
+
+
+
 
     pygame.event.pump()
     time.sleep(0.01)
