@@ -5,6 +5,8 @@ from numpy import interp
 import time
 from math import sqrt, floor, pi
 
+import yaml
+
 import movement
 
 
@@ -36,16 +38,21 @@ def deadzone(stick_val: float) -> float:
     return 0
 
 
-with open("mac.txt", "r") as f:
-    esp_mac = f.readline().strip()
+with open("config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+esp_mac = config["mac"]
 sock = None
-print(esp_mac)
-try:
-    sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-    sock.connect((esp_mac, 1))
-    time.sleep(2)
-except bluetooth.btcommon.BluetoothError as e:
-    print(f"Error: {e}")
+while sock is None:
+    try:
+        sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        sock.connect((esp_mac, 1))
+        print("Connected to ESP32")
+        sock.settimeout(0.01)
+        time.sleep(2)
+        break
+    except bluetooth.btcommon.BluetoothError as e:
+            print(f"Error: {e}")
+    sock = None
 
 pygame.init()
 pygame.joystick.init()
@@ -57,15 +64,18 @@ servos = [movement.Servo(i, sock) for i in range(12)]
 legs = [movement.Leg(servos[i : i + 3]) for i in range(0, 12, 3)]
 wait_next_press = False
 move_vect = legs[selected_leg].position 
-mode = "individual"
+mode = "all_leg"  # "all_leg", "per_servo", "per_link"
 while True:
+    # hotplug the controller (dualshock 4)
     for event in pygame.event.get():
         if event.type == pygame.JOYDEVICEADDED:
             controller = pygame.joystick.Joystick(event.device_index)
         if event.type == pygame.JOYDEVICEREMOVED:
             controller = None
     if controller is not None:
-        if controller.get_hat(0)[0] and not wait_next_press:
+        joy_vect = normalize(deadzone(controller.get_axis(3)), -1 * deadzone(controller.get_axis(4)))
+        # left right dpad rocker, change servo up or down
+        if controller.get_hat(0)[0] and not wait_next_press:             
             selected_servo = movement.constrain(
                 selected_servo, 0, 11, controller.get_hat(0)[0]
             )
@@ -73,7 +83,8 @@ while True:
             print(f"Selected leg {selected_leg}, servo {selected_servo}")
             move_vect = legs[selected_leg].position
             wait_next_press = True
-        if controller.get_hat(0) == (0, 0):
+        # debounce of left_right dpad rocker
+        if controller.get_hat(0) == (0, 0):             
             wait_next_press = False
         if controller.get_hat(0)[1] and not wait_next_press:
             servos[selected_servo].relative_ang(controller.get_hat(0)[1])
@@ -81,25 +92,31 @@ while True:
             wait_next_press = True
         if controller.get_button(10):
             exit()
-        if mode == "mirror":
+        if mode == "all_leg":
             # right joystick handling
             # axis index: 0 = left horiz, 1 = left vert, 2 = left trigger,
             # 3 = right horiz, 4 = right vert, 5 = right trigger
-            joy_vect = normalize(deadzone(controller.get_axis(3)), -1 * deadzone(controller.get_axis(4)))
-            new_x =  move_vect[0] + 0.3 * joy_vect[0] 
-            new_y = move_vect[1] + 0.3 * joy_vect[1]
-            print(move_vect)
+            new_x =  move_vect[0] + 2 * joy_vect[0] 
+            new_y = move_vect[1] + 2 * joy_vect[1]
             for leg in legs:
                 if leg.position_foot(new_x, new_y):
                     move_vect = (new_x, new_y)
                 else:
                     print("Out of bounds")
-        elif mode == "individual":
-            joy_vect = normalize(deadzone(controller.get_axis(3)), -1 * deadzone(controller.get_axis(4)))
+        elif mode == "per_servo":
             servos[selected_servo].relative_ang(joy_vect[0])
+        elif mode == "per_link":
+            #
+            link = servo % 3
+            print(link)
+            if link == 0:
+                pass
 
 
-
-
+    
+    try:
+        print(sock.recv(512))
+    except:
+        pass
     pygame.event.pump()
     time.sleep(0.01)

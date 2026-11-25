@@ -1,3 +1,4 @@
+import errno
 import math
 
 import bluetooth
@@ -54,6 +55,21 @@ def constrain(x, start: int, end: int, delta: int):
     return x
 
 
+def is_timeout(e: Exception) -> bool:
+    """Checks if an exception represents a timeout."""
+    if isinstance(e, TimeoutError):
+        return True
+    msg = str(e).lower()
+    if "time" in msg and "out" in msg:
+        return True
+    if getattr(e, "errno", None) in (errno.ETIMEDOUT, 110):
+        return True
+    if hasattr(e, "args") and len(e.args) > 0:
+        if e.args[0] in (errno.ETIMEDOUT, 110, "timed out"):
+            return True
+    return False
+
+
 class Servo:
     """represents 1 servo on the bot"""
 
@@ -103,28 +119,41 @@ class Servo:
         return f"i am servo {iden}"
 
     def set_pulse(self, pulse_width: int):
-        """Sends packet to crab brain of #{servo}+{1.2086398107282492ang}$"""
+        """Sends packet to crab brain of #{servo}+{ang}$"""
         if pulse_width < self.min_pwm or pulse_width > self.max_pwm:
             raise ValueError("invalid pulse")
         if self.sock is None:
             raise bluetooth.BluetoothError("Connection is offline")
         elif pulse_width != self.pulse or not self.set:
-            self.pulse = pulse_width
-            self.sock.send(
-                "#".encode()
-                + self.id.to_bytes(1, "big")
-                + "+".encode()
-                + self.pulse.to_bytes(2, "big")
-                + "$".encode()
-            )
-            self.angle = self._pwm2rad(self.pulse)
-            print(f"servo: {self.id}\tpulse: {self.pulse}\tangle: {self.angle}")
-            self.set = True
+            try:
+                self.sock.send(
+                    "#".encode()
+                    + self.id.to_bytes(1, "big")
+                    + "+".encode()
+                    + pulse_width.to_bytes(2, "big")
+                    + "$".encode()
+                )
+                self.pulse = pulse_width
+                self.angle = self._pwm2rad(self.pulse)
+                print(f"servo: {self.id}\tpulse: {self.pulse}\tangle: {self.angle}")
+                self.set = True
+            except Exception as e:
+                if is_timeout(e):
+                    pass
+                else:
+                    raise
 
     def relative_ang(self, delta: int):
         """Makes the pulse delta ms longer if able"""
         self.set_pulse(constrain(self.pulse, self.min_pwm, self.max_pwm, delta))
-
+    
+    def set_ang(self, ang: float):
+        """sets servo angle to the ang in radians"""
+        if ang < self.min_ang or ang > self.max_ang:
+            print("out of bounds, skipping...") 
+            return
+        self.angle = ang
+        self.pulse = self._rad2pwm(ang)
 
 class Leg:
     def __init__(self, servos: list[Servo]):
