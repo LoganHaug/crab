@@ -1,6 +1,5 @@
 PyBluez==0.23	
 pygame==2.6.1
-pytest==9.0.0
 numpy==2.3.5
 PyYAML==6.0.1
 keyboard==0.13.5
