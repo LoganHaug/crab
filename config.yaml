@@ -1,2 +1,3 @@
-control_mode: "keyboard"
+control_mode: "keyboard" # "keyboard", "controller"
 mac: "14:08:08:A6:24:56"
+move_mode: "per_servo"  # "all_leg", "per_servo", "per_link" 
